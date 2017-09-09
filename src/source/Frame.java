@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import source.model.Monster;
 
 /**
  * @author Nikos Chalkiadakis
@@ -93,21 +94,22 @@ public class Frame extends javax.swing.JFrame {
                 
                 if(source.equals(menuActionsAddMonster)) {
                     AddMonsterDialog dialog = new AddMonsterDialog(frame, true);
-                    MonsterPanel createdMPanels[] = dialog.display();
+                    Monster[] createdMonsters = dialog.display();
+                    MonsterPanel[] createdMPanels = new MonsterPanel[createdMonsters.length];
                     int screenWidth = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDisplayMode().getWidth();
                     
-                    for(MonsterPanel mPanel : createdMPanels) {
-                        int adjustedWidth = (mPanelsArrayList.get(mPanelsArrayList.size()-1).size() + 1)*mPanel.getPreferredSize().width; //to neo width an minei sthn idia seira kai valei mPanel.
+                    for(int i=0; i<createdMPanels.length; i++) {
+                        MonsterPanel curPanel = createdMPanels[i] = new MonsterPanel(createdMonsters[i], this);
+                        int adjustedWidth = (mPanelsArrayList.get(mPanelsArrayList.size()-1).size() + 1)*curPanel.getPreferredSize().width; //to neo width an minei sthn idia seira kai valei mPanel.
 
                         if(adjustedWidth > screenWidth) { //an currentRow's mPanels are greater than screenWidth.
                             mPanelsArrayList.add(new ArrayList<>());    //epomeno row.
                         }
-                        mPanel.getDeleteButton().addActionListener(this);
-                        monstersContainer.add(mPanel);
-                        mPanelsArrayList.get(mPanelsArrayList.size()-1).add(mPanel);
+                        monstersContainer.add(curPanel);
+                        mPanelsArrayList.get(mPanelsArrayList.size()-1).add(curPanel);
                         setFixedSize();
                         frame.pack();
-                        setMonsterPanelFocus(mPanel);
+                        setMonsterPanelFocus(curPanel);
                     }
                 } else if(source.equals(menuActionsClearAll)) {
                     if(!(mPanelsArrayList.get(0).isEmpty())) {    //ean einai empty, den exei nohma tipota apo ta parakatw.

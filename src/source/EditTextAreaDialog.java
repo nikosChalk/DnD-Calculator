@@ -23,10 +23,10 @@ import javax.swing.*;
  *
  * @author Nikos Chalkiadakis
  */
-public class AddNotesDialog extends javax.swing.JDialog implements ActionListener {
+public class EditTextAreaDialog extends javax.swing.JDialog implements ActionListener {
     private JTextArea initialNotesTextArea;
     
-    public AddNotesDialog(JTextArea passedTextArea) {
+    public EditTextAreaDialog(JTextArea passedTextArea) {
         super((Frame)null, true);
         initComponents();
         initialNotesTextArea = passedTextArea;

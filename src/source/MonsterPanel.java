@@ -21,56 +21,55 @@ import java.net.URL;
 import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import source.model.Monster;
 
 /**
  * @author Nikos Chalkiadakis
  */
 public class MonsterPanel extends JPanel {
-    private static final URL IMAGE_LOCK_LOCKED = MonsterPanel.class.getResource("/media/lock_locked.png");
-    private static final URL IMAGE_LOCK_UNLOCKED = MonsterPanel.class.getResource("/media/lock_unlocked.png");
+    private static final ImageIcon IMAGE_LOCK_LOCKED = new ImageIcon(MonsterPanel.class.getResource("/media/lock_locked.png"));
+    private static final ImageIcon IMAGE_LOCK_UNLOCKED = new ImageIcon(MonsterPanel.class.getResource("/media/lock_unlocked.png"));
     private static final String operationsOffset = "  ";
-    private static int MONSTER_ID = 0;
     
-    public final int ID;
+    /**
+     * The monster which the panel contains.
+     */
+    private Monster monster;
+    
+    /**
+     * The panel's listener. Handles all events except the deleteButton.
+     */
     private MyListener listener;
+    
+    /**
+     * Numeric buttons of the calculator.
+     */
     private JButton[] numericButtonsArray;
-    private String name;
+    
+    /**
+     * Contains the textFields associated with the monster's attributes.
+     */
+    private JTextField[] variableTextFields;
+    
+    /**
+     * Whether or not this JPanel is focused and therefor has its hotkeys enabled.
+     */
     private boolean isFocused;
-    private int curHP, fullHP;
     
     
 
     //HP>=0 FORMAT: --HP-OP-VALUE-OP
     //HP<0  FORMAT: -HP-OP-VALUE-OP
-    public MonsterPanel(String monsterName, String notes, int monsterHP) {
+    /**
+     * Creates a new panel for displaying the monster's attributes.
+     * @param monster The monster
+     */
+    public MonsterPanel(Monster monster, ActionListener deleteButtonListener) {
+        initComponents();   /* Initialized GUI */
         listener = new MyListener(this);
-        initComponents();
-        prepareClasses();
+        this.monster = monster;
 
-        System.out.println("MONSTER_ID: " + MONSTER_ID);
-        this.ID = MONSTER_ID++;
-        this.name = monsterName;
-        this.curHP = monsterHP;
-        this.fullHP = monsterHP;
-        this.notesTextArea.setText(notes);
-        isFocused = false;
-        
-        TitledBorder border = (TitledBorder)this.getBorder();
-        border.setTitle("Monster_ID: " + ID);
-        nameTextField.setText(name);
-        monsterIdTextField.setText("" + ID);
-        fullHPTextField.setText("" + curHP);
-        calculationsTextArea.setText(((curHP<0) ? "" : " ") + curHP);
-        operationsTextField.setText(operationsOffset + curHP);
-    }
- 
-    public MonsterPanel() {
-        this(null, "", -1);
-        MONSTER_ID--;
-    
-    }
-    
-    private void prepareClasses() {
+        /* Grouping Buttons */
         numericButtonsArray = new JButton[10];
         numericButtonsArray[0] = button0;
         numericButtonsArray[1] = button1;
@@ -83,6 +82,35 @@ public class MonsterPanel extends JPanel {
         numericButtonsArray[8] = button8;
         numericButtonsArray[9] = button9;
         
+        variableTextFields = new JTextField[] {nameTextField, fullHPTextField};
+        isFocused = false;
+        
+        /* Initialize Listeners */
+        deleteButton.addActionListener(deleteButtonListener);
+        registerListeners();
+        
+        /* Initializing GUI with monster's attributes */
+        TitledBorder border = (TitledBorder)this.getBorder();
+        border.setTitle("Monster_ID: " + monster.id);
+        
+        notesTextArea.setText(monster.getNotes());
+        nameTextField.setText(monster.getName());
+        fullHPTextField.setText("" + monster.getCurHP());
+        calculationsTextArea.setText(((monster.getCurHP()<0) ? "" : " ") + monster.getCurHP());
+        operationsTextField.setText(operationsOffset + monster.getCurHP());
+    }
+ 
+    /**
+     * Constructor used by NetBeans to generate the "Design" GUI builder
+     */
+    public MonsterPanel() {
+        initComponents();
+    }
+    
+    /**
+     * Registers the listeners for the buttons of this JPanel.
+     */
+    private void registerListeners() {
         for(JButton button : numericButtonsArray)
             button.addActionListener(listener);
         
@@ -104,17 +132,16 @@ public class MonsterPanel extends JPanel {
         
         nameTextField.addFocusListener(listener);
         fullHPTextField.addFocusListener(listener);
-        monsterIdTextField.setText(" " + ID);
     }
     
-    public JButton getDeleteButton() {
-        return deleteButton;
-    }
-    
+    /**
+     * Change the focus state of this panel. If this panel gets focus, then its hotkeys are enabled.
+     * @param state True if focus should be on, false otherwise.
+     */
     public void setFocused(boolean state) {
         isFocused = state;
         TitledBorder mainBorder = (TitledBorder)this.getBorder();
-        setHotKeys(state);
+        enableHotKeys(state);
         if(state) {
             mainBorder.setBorder(BorderFactory.createEtchedBorder(Color.MAGENTA, Color.RED));
         } else {
@@ -122,13 +149,16 @@ public class MonsterPanel extends JPanel {
             if(!(variablesLockCheckBox.isSelected())) { //locking the variables when losing focuss.
                 System.out.println("Custom calling to actionEvent due to having unlocked the variables and losing foucs.");
                 variablesLockCheckBox.setSelected(true);    //LOCK.
-                ActionEvent lockButtonEvent = new ActionEvent(variablesLockCheckBox, ActionEvent.ACTION_PERFORMED, variablesLockCheckBox.getActionCommand());   //creating customly the setSelected event. (san na ekane click to button).
-                listener.actionPerformed(lockButtonEvent);  //performing the custom event.
+                listener.actionPerformed(new ActionEvent(variablesLockCheckBox, ActionEvent.ACTION_PERFORMED, variablesLockCheckBox.getActionCommand()));  //creating customly the setSelected event. (san na ekane click to button).
             }
         }
     }
     
-    private void setHotKeys(boolean enable) {
+    /**
+     * Enables or disables the hotkeys of this JPanel.
+     * @param enable True if the panel's hotkeys should be enabled. False otherwise.
+     */
+    private void enableHotKeys(boolean enable) {
         for(int i=0; i<numericButtonsArray.length; i++) {
             JButton button = numericButtonsArray[i];
             if(enable && variablesLockCheckBox.isSelected())
@@ -169,6 +199,13 @@ public class MonsterPanel extends JPanel {
         }
     }
     
+    /**
+     * Adds a hotkey for the given button.
+     * @param button The button which will get the hotkey.
+     * @param key Sames as {@link javax.swing.KeyStroke#getKeyStroke(int, int) KeyStroke.getKeyStroke(int, int)} method
+     * @param keyModifier Sames as {@link javax.swing.KeyStroke#getKeyStroke(int, int) KeyStroke.getKeyStroke(int, int)} method
+     * @param actionMapKey Same as {@link javax.swing.ActionMap#put(java.lang.Object, javax.swing.Action) ActionMap.put()} method
+     */
     private void addButtonHotKey(JButton button, int key, int keyModifier, Object actionMapKey) {
         button.getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(key, keyModifier), actionMapKey);
         button.getActionMap().put(actionMapKey, new AbstractAction() {
@@ -179,20 +216,27 @@ public class MonsterPanel extends JPanel {
         });
     }
     
+    /**
+     * Removes the hotkey for the given button.
+     * @param button The button
+     */
     private void removeButtonHotKey(JButton button) {
         button.getInputMap(WHEN_IN_FOCUSED_WINDOW).clear();
     }
     
-    
+    /**
+     * Class which handles all the events that occur within the MonsterPanel, except the deleteButton's listener.
+     */
     private class MyListener implements ActionListener, FocusListener {
         private MonsterPanel panel;
         
         private MyListener(MonsterPanel panel) {
             this.panel = panel;
-        }
+       }
         
         @Override
         public void focusGained(FocusEvent event) {
+            /* In case the user clicks on a textfield, select the whole text */
             if(event.getSource() instanceof JTextField) {
                 JTextField source = (JTextField)event.getSource();
                 source.selectAll();
@@ -202,45 +246,8 @@ public class MonsterPanel extends JPanel {
         @Override
         public void actionPerformed(ActionEvent event) {
             if(event.getSource() instanceof JCheckBox) {
-                JCheckBox source = (JCheckBox)event.getSource();
+                checkBoxEventHandler(event, (JCheckBox)event.getSource());
                 
-                if(source.equals(variablesLockCheckBox)) {
-                    boolean isSelected = variablesLockCheckBox.isSelected();
-                    setHotKeys(isSelected && isFocused);
-                    if(isSelected) {
-                        variablesLockCheckBox.setIcon(new javax.swing.ImageIcon(IMAGE_LOCK_LOCKED));
-                        nameTextField.setBackground(new Color(255,175,175));
-                        try {
-                            int newFullHpValue = Integer.parseInt(fullHPTextField.getText());
-                            int hpDif = newFullHpValue - fullHP;
-                            
-                            if(hpDif != 0) {
-                                fullHP = newFullHpValue;
-                                curHP += hpDif;
-                                operationsTextField.setText(operationsOffset + curHP);
-                                calculationsTextArea.setText( ((curHP<0) ? "" : " ") + curHP);
-                            }
-                        } catch(NumberFormatException nfe) {
-                            System.err.println("While trying to parse fullHP text to a number: " + nfe.getMessage());
-                        }
-                    } else {
-                        variablesLockCheckBox.setIcon(new javax.swing.ImageIcon(IMAGE_LOCK_UNLOCKED));
-                        nameTextField.setBackground(Color.WHITE);
-                    }
-                    fullHPTextField.setEditable(!isSelected);
-                    fullHPTextField.setFocusable(!isSelected);
-                    
-                    nameTextField.setEditable(!isSelected);
-                    nameTextField.setFocusable(!isSelected);
-                } else if(source.equals(deleteLockCheckBox)) {
-                    boolean isSelected = deleteLockCheckBox.isSelected();
-                    
-                    if(isSelected)
-                        deleteLockCheckBox.setIcon(new javax.swing.ImageIcon(IMAGE_LOCK_LOCKED));
-                    else
-                        deleteLockCheckBox.setIcon(new javax.swing.ImageIcon(IMAGE_LOCK_UNLOCKED));
-                    deleteButton.setEnabled(!isSelected);
-                }
             } else if(event.getSource() instanceof JButton) {
                 JButton source = (JButton)event.getSource();
                 
@@ -253,7 +260,7 @@ public class MonsterPanel extends JPanel {
                     System.out.println("opText: " + opText);
                     System.out.println("opTextLastChar: " + opTextLastChar);
                     System.out.println("pressedChar: " + buttonChar);
-                    if(opText.equals("" + curHP) && !isOperator) {  //den pathse operation enw egrafe to curHP.
+                    if(opText.equals("" + monster.getCurHP()) && !isOperator) {  //den pathse operation enw egrafe to curHP.
                         System.out.println("tried pressing something else when expected operation.");
                         return;
                     }
@@ -307,7 +314,7 @@ public class MonsterPanel extends JPanel {
                 } else if(source.equals(buttonClear)) {
                     String opText = operationsTextField.getText().replaceAll(" ", "");
                     
-                    if(opText.equals("" + curHP)) {  //pathse C enw egrafe to curHP.
+                    if(opText.equals("" + monster.getCurHP())) {  //pathse C enw egrafe to curHP.
                         System.out.println("tried erasing full hp.");
                         return;
                     }
@@ -338,9 +345,9 @@ public class MonsterPanel extends JPanel {
                     for(int i=0; i<opText.length(); i++) {
                         char ch = opText.charAt(i);
 
-                        if(i==0 && curHP < 0) {   //den lamvanei to '-' brosta apo to HP. To thewrei ws negative num sto epomeno loop.
-                            numbers.add((double)(curHP));
-                            i = new String("" + curHP).length() - 1;    //pernaei thn thesh tou HP.
+                        if(i==0 && monster.getCurHP() < 0) {   //den lamvanei to '-' brosta apo to HP. To thewrei ws negative num sto epomeno loop.
+                            numbers.add((double)(monster.getCurHP()));
+                            i = new String("" + monster.getCurHP()).length() - 1;    //pernaei thn thesh tou HP.
                             continue;   //kai phgainei sthn epomenh pou logika einai operator..
                         }
                         if(isOperator(ch) || isBracket(ch)) {
@@ -417,24 +424,63 @@ public class MonsterPanel extends JPanel {
                     System.out.println("finalResult: " + result);
                     result = Math.floor(result);
                     System.out.println("roundedResult: " + result);
-                    int hpDif = (int)result - curHP;
+                    int hpDif = (int)result - monster.getCurHP();
                     char hpDifSign = (hpDif>0) ? '+' : '-';
-                    int offset = Integer.toString(curHP).length() - Integer.toString(hpDif).length();
+                    int offset = Integer.toString(monster.getCurHP()).length() - Integer.toString(hpDif).length();
                     String strOffset = new String();
                     for(int i=0; i<offset; i++)
                         strOffset.concat(" ");
-                    curHP = (int)result;
-                    calculationsTextArea.setText(calculationsTextArea.getText() + "\n" + hpDifSign + Math.abs(hpDif) + "\n----\n" + ((curHP<0) ? ""  : " ") + curHP);
-                    operationsTextField.setText(operationsOffset + curHP);
+                    monster.setCurHP((int)result);
+                    calculationsTextArea.setText(calculationsTextArea.getText() + "\n" + hpDifSign + Math.abs(hpDif) + "\n----\n" + ((monster.getCurHP()<0) ? ""  : " ") + monster.getCurHP());
+                    operationsTextField.setText(operationsOffset + monster.getCurHP());
                     
                 } else if(source.equals(clearDisplayButton)) {
-                    calculationsTextArea.setText(((curHP<0) ? "" : " ") + curHP);
+                    calculationsTextArea.setText(((monster.getCurHP()<0) ? "" : " ") + monster.getCurHP());
                 } else if(source.equals(addNotesButton)) {
-                    AddNotesDialog dialog = new AddNotesDialog(notesTextArea);
+                    EditTextAreaDialog dialog = new EditTextAreaDialog(notesTextArea);
                     dialog.setVisible(true);
                 }
             }
         }
+        
+        /**
+         * Handles the events which were triggered by {@link javax.swing.JCheckBox JCheckBox} objects.
+         * @param event The event which occured.
+         * @param checkbox The checkbox which triggered the event.
+         */
+        private void checkBoxEventHandler(ActionEvent event, JCheckBox checkbox) {
+            if(checkbox.equals(variablesLockCheckBox)) {
+                boolean isLocked = variablesLockCheckBox.isSelected();
+                enableHotKeys(isLocked && isFocused);
+                if(isLocked) {  /* variables have been locked. Update them */
+                    variablesLockCheckBox.setIcon(IMAGE_LOCK_LOCKED);
+                    nameTextField.setBackground(new Color(255, 175, 175));
+                    try {
+                        /* Update the Monster */
+                        int newMaxHP = Integer.parseInt(fullHPTextField.getText());
+                        monster.setMaxHP(newMaxHP); // May throw IllegalArgumentException
+
+                        /* Update the GUI */
+                        operationsTextField.setText(operationsOffset + monster.getCurHP());
+                        calculationsTextArea.setText(((monster.getCurHP() < 0) ? "" : " ") + monster.getCurHP());
+                    } catch(Exception ex) {
+                        fullHPTextField.setText("" + monster.getMaxHP());   //User mis-typed in the max HP field. Restore it to its original content.
+                    }
+                } else {    /* Variables have been unlocked */
+                    variablesLockCheckBox.setIcon(IMAGE_LOCK_UNLOCKED);
+                    nameTextField.setBackground(Color.WHITE);
+                }
+                for(JTextField textField : variableTextFields) {
+                    textField.setEditable(!isLocked);
+                    textField.setFocusable(!isLocked);
+                }
+            } else if(checkbox.equals(deleteLockCheckBox)) {
+                boolean isLocked = deleteLockCheckBox.isSelected();
+                deleteLockCheckBox.setIcon(isLocked ? IMAGE_LOCK_LOCKED : IMAGE_LOCK_UNLOCKED);
+                deleteButton.setEnabled(!isLocked);
+            }
+        }
+        
         
         private void parseOperationsTextField(String passedText) {
             String visualText = new String();
@@ -449,7 +495,7 @@ public class MonsterPanel extends JPanel {
             }
             visualText = visualText.concat("" + passedText.charAt(passedText.length() - 1));    //vazei to teleutaio char. logo ths for an exei xreiastei space exei hdh bei.
             
-            String initialTextOffset = (curHP >= 0) ? "  " : " ";
+            String initialTextOffset = (monster.getCurHP() >= 0) ? "  " : " ";
             visualText = initialTextOffset + visualText;
 
             System.out.println("finalText: " + passedText);
@@ -501,9 +547,7 @@ public class MonsterPanel extends JPanel {
         }
         
         @Override
-        public void focusLost(FocusEvent event) {
-           //NONE! 
-        }
+        public void focusLost(FocusEvent event) { }
         
     }
 
@@ -541,8 +585,6 @@ public class MonsterPanel extends JPanel {
         fullHPLabel = new javax.swing.JLabel();
         topSeperator = new javax.swing.JSeparator();
         variablesLockCheckBox = new javax.swing.JCheckBox();
-        monsterIdLabel = new javax.swing.JLabel();
-        monsterIdTextField = new javax.swing.JTextField();
         clearDisplayButton = new javax.swing.JButton();
         buttonEquals = new javax.swing.JButton();
         deleteButton = new javax.swing.JButton();
@@ -782,13 +824,6 @@ public class MonsterPanel extends JPanel {
         variablesLockCheckBox.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         variablesLockCheckBox.setIcon(new javax.swing.ImageIcon(getClass().getResource("/media/lock_locked.png"))); // NOI18N
 
-        monsterIdLabel.setLabelFor(monsterIdTextField);
-        monsterIdLabel.setText("Monster ID: ");
-
-        monsterIdTextField.setEditable(false);
-        monsterIdTextField.setFocusable(false);
-        monsterIdTextField.setMargin(new java.awt.Insets(2, 3, 2, 2));
-
         clearDisplayButton.setText("Clear Calculations");
         clearDisplayButton.setToolTipText("Ctrl + C");
         clearDisplayButton.setActionCommand("");
@@ -841,21 +876,18 @@ public class MonsterPanel extends JPanel {
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
                                 .addComponent(calculatorPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(buttonEquals, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                                        .addGap(0, 0, Short.MAX_VALUE)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(layout.createSequentialGroup()
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                            .addComponent(buttonEquals, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                            .addComponent(clearDisplayButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                            .addComponent(addNotesButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                    .addGroup(layout.createSequentialGroup()
+                                        .addGap(30, 30, 30)
                                         .addComponent(deleteButton)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(deleteLockCheckBox)
-                                        .addGap(4, 4, 4))
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addComponent(monsterIdLabel)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(monsterIdTextField, javax.swing.GroupLayout.PREFERRED_SIZE, 53, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                    .addComponent(clearDisplayButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(addNotesButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                        .addComponent(deleteLockCheckBox))))
                             .addGroup(layout.createSequentialGroup()
                                 .addContainerGap()
                                 .addComponent(nameLabel)
@@ -896,15 +928,11 @@ public class MonsterPanel extends JPanel {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(addNotesButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(deleteButton)
-                            .addComponent(deleteLockCheckBox, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(deleteButton, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(deleteLockCheckBox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(clearDisplayButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(monsterIdLabel)
-                            .addComponent(monsterIdTextField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(clearDisplayButton))
                     .addGroup(layout.createSequentialGroup()
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(calculatorPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
@@ -944,8 +972,6 @@ public class MonsterPanel extends JPanel {
     private javax.swing.JTextField fullHPTextField;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane3;
-    private javax.swing.JLabel monsterIdLabel;
-    private javax.swing.JTextField monsterIdTextField;
     private javax.swing.JLabel nameLabel;
     private javax.swing.JTextField nameTextField;
     private javax.swing.JTextArea notesTextArea;

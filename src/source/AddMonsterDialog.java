@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Nikos Chalkiadakis.
+ * Copyright 2014-2017 Nikos Chalkiadakis.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,24 +19,44 @@ package source;
 import java.awt.event.*;
 import javax.swing.JButton;
 import javax.swing.JTextField;
+import source.model.Monster;
 
 /**
  * @author Nikos Chalkiadakis
  */
 public class AddMonsterDialog extends javax.swing.JDialog {
     private MyListener listener;
+    
+    /**
+     * The monster template.
+     */
+    private Monster templateMonster;
+    /**
+     * How many copies should be created.
+     */
+    private int copies;
 
+    /**
+     * Creates a new Dialog for creating a monster.
+     * @param parent The dialog's parent. See more at {@link javax.swing.JDialog#JDialog(java.awt.Dialog, boolean) JDialog(Dialog, boolean)}
+     * @param modal Same as See more at {@link javax.swing.JDialog#JDialog(java.awt.Dialog, boolean) JDialog(Dialog, boolean)}.
+     */
     public AddMonsterDialog(Frame parent, boolean modal) {
         super(parent, modal);
         this.setLocationRelativeTo(parent);
         this.setIconImage(parent.getIconImage());
         initComponents();
-        prepareClasses();
+        
+        listener = new MyListener();
+        copies = -1;
+        templateMonster = null;
+        registerListeners();
     }
     
-    private void prepareClasses() {
-        listener = new MyListener(this);
-        
+    /**
+     * Registers the listeners for this dialog's events.
+     */
+    private void registerListeners() {
         this.addWindowListener(listener);
         doneButton.addActionListener(listener);
         cancelButton.addActionListener(listener);
@@ -46,48 +66,74 @@ public class AddMonsterDialog extends javax.swing.JDialog {
         copiesTextField.addFocusListener(listener);
     }
     
-    public MonsterPanel[] display() {
+    /**
+     * Displays the dialog.
+     * @return Returns an array containing {@link source.model.Monster Monster} instances which represent the requested monsters.
+     */
+    public Monster[] display() {
         listener.checkingThread.start();
         this.setVisible(true);
-        return listener.mPanelsArray;
+        
+        Monster[] monsterArray = new Monster[copies];
+        for(int i=0; i<monsterArray.length; i++) {
+            Monster curMonster = new Monster(templateMonster);
+            if(copies > 1)
+                curMonster.setName(curMonster.getName() + " " + (i+1));
+            monsterArray[i] = curMonster;
+        }
+        return monsterArray;
     }
     
+    /**
+     * Listener for the dialog's events.
+     */
     private class MyListener extends WindowAdapter implements ActionListener, FocusListener {
-        private AddMonsterDialog dialog;
-        private MonsterPanel mPanelsArray[];
+        /**
+         * This thread constantly checks (every 400ms) whether or not the user's current input is okay.
+         */
         private Thread checkingThread;
         
-        private MyListener(AddMonsterDialog dialog) {
-            this.dialog = dialog;
-            mPanelsArray = new MonsterPanel[0];
-            checkingThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while(!(checkingThread.isInterrupted())) {
-                        doneButton.setEnabled(checkValidityAndFlavorText());
-                        try {
-                            Thread.sleep(400);
-                        } catch(InterruptedException ie) {
-                            System.err.println("Interrupted. Thread stopping.");
-                            return;
-                        }
+        private MyListener() {
+            checkingThread = new Thread(() -> {
+                boolean isValidInput;
+                while(!(checkingThread.isInterrupted())) {
+                    isValidInput = checkValidity();
+                    if(isValidInput)
+                        setFlavourText();
+                    doneButton.setEnabled(isValidInput);
+                    try {
+                        Thread.sleep(400);
+                    } catch(InterruptedException ie) {
+                        System.err.println("Interrupted. Thread stopping.");
+                        return;
                     }
                 }
             });
         }
         
-        private boolean checkValidityAndFlavorText() {
+        /**
+         * Checks whether or not the user's inputs are correct.
+         * @return True if inputs are correct, false otherwise.
+         */
+        private boolean checkValidity() {
             try {
-                Integer.parseInt(hpTextField.getText());
-                setFlavourText();
-                Integer.parseInt(copiesTextField.getText());
-                if (nameTextField.getText().length() == 0) {
-                    throw new NumberFormatException("Name has not been fulfilled.");
-                }
+                int hp = Integer.parseInt(hpTextField.getText());
+                if(Integer.parseInt(copiesTextField.getText()) <= 0)
+                    throw new Exception("Copies must be greater than 0");
+                new Monster(nameTextField.getText(), notesTextArea.getText(), hp);    //Attempting to create a sample monster for Exception purposes.
                 return true;
-            } catch (NumberFormatException nfe) {
+            } catch (Exception ex) {
                 return false;
             }
+        }
+        
+        /**
+         * Sets a flavor text based on the given monster's maxHP.
+         * @throws NumberFormatException If the hpTextField cannot be parsed to an int.
+         */
+        private void setFlavourText() throws NumberFormatException {
+            int maxHP = Integer.parseInt(hpTextField.getText());
+            flavourTextArea.setText("  ".concat(Monster.getFlavourText(maxHP)));
         }
         
         @Override
@@ -95,81 +141,39 @@ public class AddMonsterDialog extends javax.swing.JDialog {
             if(event.getSource() instanceof JButton) {
                 JButton source = (JButton)event.getSource();
                 
-                if(source.equals(doneButton)) {
-                    mPanelsArray = new MonsterPanel[Integer.parseInt(copiesTextField.getText())];
-                    for(int i=0; i<mPanelsArray.length; i++)
-                        mPanelsArray[i] = new MonsterPanel(nameTextField.getText() + ((mPanelsArray.length != 1) ? "_" + (i+1) : ""), notesTextArea.getText(), Integer.parseInt(hpTextField.getText())); //i+1 gia na mhn metrame apo to mhden kai berdeuomaste.
+                if(source.equals(doneButton) && checkValidity()) { // Check validity once more, just in case.
+                    templateMonster = new Monster(nameTextField.getText(), notesTextArea.getText(), Integer.parseInt(hpTextField.getText()));
+                    copies = Integer.parseInt(copiesTextField.getText());
+                    releaseResources();
                 } else if(source.equals(cancelButton)) {
-                    ;   //no action. just for the redirection. It will continue tho and execute the bellow actions.
-                } 
-                checkingThread.interrupt();
-                dialog.dispose();
+                    releaseResources();
+                }
             }
         }
         
         @Override
-        public void windowClosing(WindowEvent event) {  //giati otan pataei X den kanei kill to thread.
-            checkingThread.interrupt();
-            dialog.dispose();
-        }
-        
-        @Override
-        public void focusLost(FocusEvent event) {
-            if(event.getSource() instanceof JTextField) {
-                doneButton.setEnabled(checkValidityAndFlavorText());
-            }
-        }
-        
-        private void setFlavourText() throws NumberFormatException {
-            int hp = Integer.parseInt(hpTextField.getText());
-            int value = hp/50;
-            String textOffset = "  ";
-            String flavourText = "";
-            
-            if(hp <= 0)
-                flavourText = textOffset + "Hm... I'm wondering how tough will it be...";
-            else if (value == 0) //0-49
-                flavourText = textOffset + "Kitty cat...";
-             else if (value == 1) //50-99
-                flavourText = textOffset + "Something like trivial difficulty? ;)";
-             else if (value == 2) //100-149
-                flavourText = textOffset + "Go pokemon! Pikachu, I choose you!";
-             else if (value == 3) //150-159
-                flavourText = textOffset + "Ha! Piece of cake! ;)";
-             else if (value == 4) //200-249
-                flavourText = textOffset + "Hmmm.... Challenging...";
-             else if (value == 5) //250-299
-                flavourText = "www.youtube.com/watch?v=WQO-aOdJLiw";
-             else if (value == 6) //300-349
-                flavourText = textOffset + "You are going to give us quite a hard time...";
-             else if (value == 7) //350-399
-                flavourText = textOffset + "Ermm... Are you sure that you really want to do this? D:";
-             else if (value == 8) //400-449
-                flavourText = textOffset + "Chould you bring us more allies? We are screwed...";
-             else if (value == 9) //450-499
-                flavourText = textOffset + "Look, I know that you are high, but....";
-             else if (value == 10 || value == 11) //500-599
-                flavourText = textOffset + "HOLY BEARD OF POSEIDON";
-             else if (value == 12 || value == 13) //600-699
-                flavourText = textOffset + "Ermmm.....Yeah...Right DM... D:";
-             else if (value == 14 || value == 15) //700-799
-                flavourText = textOffset + "*Insert evil DM laugh here*";
-             else if (value == 16 || value == 17) //800-899
-                flavourText = textOffset + "There was once a living peacful group... Yes, there was...";
-             else if (value >= 18) //900-infinity.            
-                flavourText = textOffset + "GodLike? Hahahah- Oh shit...";
-            
-            if(!(flavourText.equals(flavourTextArea.getText())))
-                flavourTextArea.setText(flavourText);
+        public void windowClosing(WindowEvent event) {  //giati otan pataei X gia na kleisei to window.
+            releaseResources();
         }
 
+        /**
+         * Releases the resources that this window is using and closes it.
+         */
+        private void releaseResources() {
+            checkingThread.interrupt();
+            dispose();
+        }
+        
         @Override
-        public void focusGained(FocusEvent event) { //GUI
+        public void focusGained(FocusEvent event) {
             if(event.getSource() instanceof JTextField) {
                 JTextField source = (JTextField)event.getSource();
+                /* When the user clicks on a JTextField, select the whole text that exists there. */
                 source.selectAll();
             }
         }
+        @Override
+        public void focusLost(FocusEvent event) { }
     }
     
 
