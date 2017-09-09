@@ -1,0 +1,5 @@
+	Date Format: dd/mm/yyyy
+
+        01/10/2014 Version 1.0.0 ---> Completed initail Version
+        05/12/2014 Version 1.1.0 ---> Added parentheseis, double numbers and about panel.
+        06/07/2015 Version 1.2.0 ---> Changed logo and some images, flavor texts, added "Notes" feature.
